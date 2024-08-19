@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Llamalama_II"
+version = "0.1.0"
+description = "A Python project integrating local LLM and text-to-speech capabilities"
+readme = "README.md"
+authors = [{ name = "Kun Kerdthaisong", email = "kun.kerdthaisong@gmail.com" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["llm", "tts", "ollama"]
+dependencies = [
+	"ollama",
+	"pyttsx3",
+	"gtts",
+	"playsound"
+]
+requires-python = ">=3.7"
+
+[project.optional-dependencies]
+dev = ["black", "bumpver", "isort", "pip-tools", "pytest"]
+
+[project.urls]
+Homepage = "https://github.com/cn40x/Llamalama_II/tree/dev"
+
+[project.scripts]
+llm-tts = "Llamalama_II.main:main"
