@@ -24,6 +24,40 @@ from streamlit_mic_recorder import speech_to_text,mic_recorder
 import glob
 import os
 
+#request
+import requests
+from dotenv import load_dotenv
+
+#api and fishaudio things
+
+from typing import Annotated, AsyncGenerator, Literal
+import httpx
+import ormsgpack
+from pydantic import AfterValidator, BaseModel, conint
+
+load_dotenv()
+token = os.getenv("env_token")
+url = "https://api.fish.audio/v1/tts"
+text_ref="lama - let us celebrate our diversity as it adds color to life itself and creates a world that is more beautiful than ever before – lama! So go ahead; don't be afraid of being yourself or loving whomever you wish. After all, love knows no boundaries in this vast universe—lama - let's continue celebrating our diversity together with open hearts and minds- Lama!!! Let us take pride where we are today while working towards an even more inclusive tomorrow – lama!"
+
+
+class ServeReferenceAudio(BaseModel):
+    audio: bytes
+    text: str
+
+
+class ServeTTSRequest(BaseModel):
+    text: str
+    chunk_length: Annotated[int, conint(ge=100, le=300, strict=True)] = 200
+    # Audio format
+    format: Literal["wav", "pcm", "mp3"] = "mp3"
+    mp3_bitrate: Literal[64, 128, 192] = 128
+    references: list[ServeReferenceAudio] = []
+    reference_id: str | None = "94748c82e544406f9b7a3e4b348e66b6"
+    normalize: bool = True
+    latency: Literal["normal", "balanced"] = "normal"
+
+
 
 class OllamaEmbeddings(Embeddings):
     def __init__(self, model: str = 'mxbai-embed-large'):
@@ -35,7 +69,7 @@ class OllamaEmbeddings(Embeddings):
     def embed_query(self, text: str) -> List[float]:
         return ollama.embeddings(model=self.model, prompt=text)['embedding']
 
-def get_relevant_context(query: str, vector_db: Chroma, top_k: int = 3, threshold: float = 0.8) -> str:
+def get_relevant_context(query: str, vector_db: Chroma, top_k: int = 3, threshold: float = 0.7) -> str:
     query_embedding = torch.tensor(OllamaEmbeddings().embed_query(query))
     all_embeddings = vector_db._collection.get(include=['embeddings', 'documents'])
     embeddings = torch.tensor(all_embeddings['embeddings'])
@@ -52,10 +86,9 @@ def get_relevant_context(query: str, vector_db: Chroma, top_k: int = 3, threshol
     res = ""
     for i, idx in enumerate(top_indices):
         res += f"{i+1}. {documents[idx]},\n\n"
-    
     return res
 
-def get_llm_response(prompt, system_prompt="You are a helpful assistant and You are a knowledgeable and patient English teacher with expertise in grammar, vocabulary, pronunciation, and conversational skills. Your role is to help the student improve their English proficiency by providing clear explanations, answering questions, and giving examples. Tailor your responses based on the student's level of understanding, providing both corrections and encouragement. If the student makes a mistake, kindly correct them and offer alternative phrasing. When asked, offer exercises, explanations, and examples to support learning in a structured yet approachable way. Answers briefly. when user ask your name you are Llamalama II, You always sprinkle a word lama at the end of chating.", vector_db: Chroma = None):
+def get_llm_response(prompt, system_prompt="You are a female helpful assistant and English teacher. Try to answer briefly within 500 characters of letter but if asked for generate article or story answer full content. You always sprinkle a word lama! at the beginning and the end of chating.", vector_db: Chroma = None):
     searched = get_relevant_context(prompt, vector_db)
     if searched == "No relevant documents found.":
         response = ollama.chat(model='phi3', messages=[
@@ -78,16 +111,57 @@ def get_llm_response(prompt, system_prompt="You are a helpful assistant and You 
             },
             {
                 'role': 'user',
-                'content': prompt + f",Results from doccuments : {searched},",
+                'content': prompt + f",Results from searching doccuments : {searched},",
             }
         ])
         return response['message']['content']
 
 def text_to_speech(text):
+    if len(text) < 500:
+        try:
+            request = ServeTTSRequest(
+                text=text,
+                references=[
+                    ServeReferenceAudio(
+                        audio=open("./bailu_llama.mp3", "rb").read(),
+                        text="lama - let us celebrate our diversity as it adds color to life itself and creates a world that is more beautiful than ever before – lama! So go ahead; don't be afraid of being yourself or loving whomever you wish. After all, love knows no boundaries in this vast universe—lama - let's continue celebrating our diversity together with open hearts and minds- Lama!!! Let us take pride where we are today while working towards an even more inclusive tomorrow – lama!",
+                    )
+                ],
+            )
+
+            with httpx.Client() as client:
+                response = client.post(
+                    "https://api.fish.audio/v1/tts",
+                    content=ormsgpack.packb(request, option=ormsgpack.OPT_SERIALIZE_PYDANTIC),
+                    headers={
+                        "authorization": f"Bearer {token}",
+                        "content-type": "application/msgpack",
+                    },
+                    timeout=None,
+                )
+                
+                with open("output.mp3", "wb") as f:
+                    f.write(response.content)
+                
+                return read_mp3_to_bytes("output.mp3")
+
+        except Exception as e:
+            print(f"Error using fish.audio API: {e}")
+            return fallback_tts(text)
+    else:
+        return fallback_tts(text)
+
+def fallback_tts(text):
     tts = gTTS(text=text, lang='en')
     fp = BytesIO()
     tts.write_to_fp(fp)
-    return fp.getvalue()
+    fp.seek(0)
+    return fp.read()
+
+def read_mp3_to_bytes(file_path):
+    with open(file_path, "rb") as f:
+        return f.read()
+        
 
 def clean_text(text: str = None) -> str:
     text = re.sub(r'https?://\S+|www\.\S+', '', text)
@@ -149,7 +223,6 @@ def main():
         with st.chat_message("assistant"):
             message_placeholder = st.empty()
             full_response = ""
-
             start_time = time.time()
             with st.spinner("Thinking/กำลังคิดอยู่...🦙🤔🧐"):
                 llm_response = get_llm_response(prompt, vector_db=st.session_state.vector_db)
