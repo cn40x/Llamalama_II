@@ -176,6 +176,6 @@ pyrightconfig.json
 # torch things
 *.pt
 *.pth
-
-
+*.json
+*.mp3
 # End of https://www.toptal.com/developers/gitignore/api/python
