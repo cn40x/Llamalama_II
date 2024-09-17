@@ -28,10 +28,10 @@ class VoiceService:
                  prompt_text=[prompt_text],#for xianyun You seem like you're in the mood for a fun conversation today! So, what shall we dive into? We could chat about anything you like—whether it's something technical, exciting ideas you're working on, or maybe even something casual. I'm all ears and ready to keep things engaging. Just let me know what's on your mind, and we'll go from there! Ara Ara for sango
                  prompt_tokens=[Path(self._output_dir+f"fake{n}.npy")], #fake3.npy is xianyun, fake0.npy is bailu, fake5.npy is songo
                  checkpoint_path=Path("checkpoints/fish-speech-1.2"),
-                 half=True,
-                 device="cuda",
+                 half=False,
+                 device="cuda:0",
                  num_samples=1,
-                 max_new_tokens=0,
+                 max_new_tokens=1000,
                  top_p=0.6,
                  repetition_penalty=1.3,
                  temperature=0.2,
@@ -42,13 +42,14 @@ class VoiceService:
 
         infer(input_path=Path("codes_0.npy"), output_path=Path(self._output_dir+"output0.wav"),
               checkpoint_path="checkpoints/fish-speech-1.2/firefly-gan-vq-fsq-4x1024-42hz-generator.pth",
-              config_name="firefly_gan_vq", device="cuda")
+              config_name="firefly_gan_vq", device="cpu")
 
-        self.play(self._output_dir+"output0.wav")
+        #self.play(self._output_dir+"output0.wav")
 
     def play(self, temp_audio_file):
         playsound(temp_audio_file)
 
-if __name__=="__main__":
-    vs=VoiceService()
-    vs.fishspeech("so what's the point! i am cute and i am your wife from now on and forever.",charactor="B")
+# if __name__=="__main__":
+#     vs=VoiceService()
+#     vs.fishspeech("so what's the point! i am cute and i am your wife from now on and forever.",charactor="B")
+#     vs.play("outputs/output0.wav")

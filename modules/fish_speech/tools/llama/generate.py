@@ -171,7 +171,7 @@ def decode_n_tokens(
         dtype=torch.int,
         device=cur_token.device,
     )
-
+    i=0
     for i in tqdm(range(num_new_tokens)):
         # We need to get windowed repeat penalty
         win_size = 16
@@ -218,28 +218,27 @@ def generate(
     Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
     """
 
-    # create an empty tensor of the expected final shape and fill in the current tokens
     T = prompt.size(1)
-
+    
     if max_new_tokens:
         if T + max_new_tokens > model.config.max_seq_len:
             max_new_tokens = model.config.max_seq_len - T
             logger.info(f"Truncating max_new_tokens to {max_new_tokens}")
-
+        
         T_new = T + max_new_tokens
     else:
         T_new = model.config.max_seq_len
         max_new_tokens = T_new - T
-
+    
     device, dtype = prompt.device, prompt.dtype
     with torch.device(device):
         model.setup_caches(
             max_batch_size=1, max_seq_len=T_new, dtype=next(model.parameters()).dtype
         )
-
+    
     codebook_dim = 1 + model.config.num_codebooks
-    # create an empty tensor of the expected final shape and fill in the current tokens
-    empty = torch.empty((codebook_dim, T_new), dtype=dtype, device=device)
+    # Create an empty tensor of the expected final shape, using the larger of T and T_new
+    empty = torch.empty((codebook_dim, max(T, T_new)), dtype=dtype, device=device)
     empty[:, :T] = prompt
     seq = empty
     input_pos = torch.arange(0, T, device=device)
@@ -600,7 +599,7 @@ def main(
     chunk_length: int,
 ) -> None:
 
-    precision = torch.half if half else torch.bfloat16
+    precision = torch.half if half else torch.float32
 
     if prompt_text is not None and len(prompt_text) != len(prompt_tokens):
         raise ValueError(

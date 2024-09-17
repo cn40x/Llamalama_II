@@ -642,7 +642,7 @@ class Attention(nn.Module):
 
         if self.use_sdpa:
             if mask is None:
-                with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
+                with sdpa_kernel(enable_math=True, enable_flash=True, enable_mem_efficient=True):
                     y = F.scaled_dot_product_attention(
                         q,
                         k,
