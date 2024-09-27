@@ -599,7 +599,7 @@ def main(
     chunk_length: int,
 ) -> None:
 
-    precision = torch.half if half else torch.float32
+    precision = torch.float32 #torch.half if half else torch.float32
 
     if prompt_text is not None and len(prompt_text) != len(prompt_tokens):
         raise ValueError(
