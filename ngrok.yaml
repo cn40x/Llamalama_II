@@ -1,0 +1,6 @@
+authtoken: "2lLuXlfLIs5vNIZZbwPKMRYKHfQ_6DYTmM3FxR51NbKuH5zuv"
+tunnels:
+  web:
+    proto: http
+    addr: 80
+    hostname: feline-steady-quickly.ngrok-free.app

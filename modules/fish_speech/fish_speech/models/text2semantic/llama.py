@@ -236,10 +236,7 @@ class BaseTransformer(nn.Module):
         x = self.embed(inp)
 
         freqs_cis = self.freqs_cis[:seq_len]
-
-        # Not that the causal mask here follows the definition of scaled_dot_product_attention
-        # That is, FALSE means masked out
-        # To maintain consistency, key_padding_mask use TRUE to mask out
+        
         mask = None
         if key_padding_mask is not None:
             mask = self.causal_mask[None, None, :seq_len, :seq_len]  # (B, N, Q, K)
@@ -251,7 +248,6 @@ class BaseTransformer(nn.Module):
             else:
                 x = layer(x, freqs_cis, mask)
 
-        # We got slow_out here
         slow_out = self.norm(x)
 
         if self.config.tie_word_embeddings:
@@ -270,33 +266,30 @@ class BaseTransformer(nn.Module):
         input_pos: Optional[Tensor] = None,
         return_all: bool = False,
     ) -> BaseTransformerForwardResult:
-        # This is used for generation, optimized for torch compile
+
         assert (
             self.max_seq_len != -1 and self.max_batch_size != -1
         ), "Please call setup_caches before forward_generate"
-
         x = self.embed(x)
-
+        input_pos=input_pos.to(torch.int64)
         mask = self.causal_mask[
             None, None, input_pos, : self.max_seq_len
-        ]  # (B, N, Q, K)
+        ]
         freqs_cis = self.freqs_cis[input_pos]
-
+        
         for layer in self.layers:
             x = layer(x, freqs_cis, mask, input_pos=input_pos)
 
-        # If prefill, we only calculate the logits of last token
         if x.size(1) > 1 and not return_all:
             x = x[:, -1:]
-
-        # We got slow_out here
+        
         slow_out = self.norm(x)
 
         if self.config.tie_word_embeddings:
             token_logits = F.linear(slow_out, self.embeddings.weight)
         else:
             token_logits = self.output(slow_out)
-
+        
         return BaseTransformerForwardResult(
             logits=token_logits,
             hidden_states=x,
@@ -411,7 +404,6 @@ class NaiveTransformer(BaseTransformer):
         token_logits = result.logits
         x = result.hidden_states
 
-        # Codebook
         codebook_logits = self.codebook_output(self.codebook_norm(x))
         codebook_logits = rearrange(
             codebook_logits, "b n (c d) -> b n c d", c=self.config.num_codebooks
@@ -591,7 +583,6 @@ class Attention(nn.Module):
         assert config.dim % config.n_head == 0
 
         total_head_dim = (config.n_head + 2 * config.n_local_heads) * config.head_dim
-        # key, query, value projections for all heads, but in a batch
         self.wqkv = nn.Linear(
             config.dim, total_head_dim, bias=config.attention_qkv_bias
         )

@@ -202,14 +202,14 @@ def decode_n_tokens(
 
     return previous_tokens[:, : i + 1]
 
-
+@torch.jit.ignore
 @torch.no_grad()
 @torch.inference_mode()
 def generate(
     *,
     model: NaiveTransformer,
     prompt: torch.Tensor,
-    max_new_tokens: int,
+    max_new_tokens: int=1000,
     im_end_id: int = 4,
     decode_one_token=decode_one_token_naive,
     **sampling_kwargs,
@@ -217,60 +217,81 @@ def generate(
     """
     Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
     """
-
-    T = prompt.size(1)
-    
-    if max_new_tokens:
+    try:
+        T = prompt.size(1)
+        max_new_tokens = max(0, min(max_new_tokens, model.config.max_seq_len - T))
+        
+        logger.debug(f"Initial T: {T}, max_new_tokens: {max_new_tokens}")
+        
+        if max_new_tokens == 0:
+            logger.warning("max_new_tokens is 0, returning original prompt")
+            return prompt
+        
         if T + max_new_tokens > model.config.max_seq_len:
             max_new_tokens = model.config.max_seq_len - T
             logger.info(f"Truncating max_new_tokens to {max_new_tokens}")
         
-        T_new = T + max_new_tokens
-    else:
-        T_new = model.config.max_seq_len
-        max_new_tokens = T_new - T
-    
-    device, dtype = prompt.device, prompt.dtype
-    with torch.device(device):
-        model.setup_caches(
-            max_batch_size=1, max_seq_len=T_new, dtype=next(model.parameters()).dtype
+        T_new = min(T + max_new_tokens, model.config.max_seq_len)
+        
+        logger.debug(f"After adjustment - T: {T}, max_new_tokens: {max_new_tokens}, T_new: {T_new}")
+        
+        device, dtype = prompt.device, prompt.dtype
+        with torch.device(device):
+            model.setup_caches(
+                max_batch_size=1, max_seq_len=T_new, dtype=next(model.parameters()).dtype
+            )
+        
+        codebook_dim = 1 + model.config.num_codebooks
+        empty = torch.empty((codebook_dim, T_new), dtype=dtype, device=device)
+        empty[:, :T] = prompt[:, :T]
+        seq = empty
+        
+        logger.debug(f"prompt shape: {prompt.shape}, empty shape: {empty.shape}, seq shape: {seq.shape}")
+        
+        input_pos = torch.arange(0, min(T, model.config.max_seq_len), device=device, dtype=torch.int64)
+        
+        logger.debug(f"input_pos: {input_pos}")
+
+        prefill_decode = (
+            decode_one_token_naive
+            if isinstance(model, NaiveTransformer)
+            else decode_one_token_ar
         )
-    
-    codebook_dim = 1 + model.config.num_codebooks
-    # Create an empty tensor of the expected final shape, using the larger of T and T_new
-    empty = torch.empty((codebook_dim, max(T, T_new)), dtype=dtype, device=device)
-    empty[:, :T] = prompt
-    seq = empty
-    input_pos = torch.arange(0, T, device=device)
 
-    # Use non-accelerated version for now, to avoid compilation overhead
-    prefill_decode = (
-        decode_one_token_naive
-        if isinstance(model, NaiveTransformer)
-        else decode_one_token_ar
-    )
+        next_token = prefill_decode(
+            model, prompt.view(1, codebook_dim, -1), input_pos, **sampling_kwargs
+        )
+        seq[:, T:T+1] = next_token
 
-    next_token = prefill_decode(
-        model, prompt.view(1, codebook_dim, -1), input_pos, **sampling_kwargs
-    )
-    seq[:, T : T + 1] = next_token
+        input_pos = torch.tensor([T], device=device, dtype=torch.int64)
+        remaining_tokens = max(0, max_new_tokens - 1)
+        
+        logger.debug(f"Before decode_n_tokens - input_pos: {input_pos}, remaining_tokens: {remaining_tokens}")
+        
+        if remaining_tokens > 0:
+            x = decode_n_tokens(
+                model,
+                next_token.view(1, codebook_dim, -1),
+                input_pos,
+                remaining_tokens,
+                im_end_id=im_end_id,
+                decode_one_token=decode_one_token,
+                **sampling_kwargs,
+            )
+            logger.debug(f"After decode_n_tokens - x shape: {x.shape}")
+            
+            end_idx = min(T + 1 + x.size(1), model.config.max_seq_len)
+            seq = seq[:, :end_idx]
+            seq[:, T+1:] = x[:, :end_idx-T-1]
+        
+        logger.debug(f"Final seq shape: {seq.shape}")
+        return seq
 
-    input_pos = torch.tensor([T], device=device, dtype=torch.int)
-    x = decode_n_tokens(
-        model,
-        next_token.view(1, codebook_dim, -1),
-        input_pos,
-        max_new_tokens - 1,
-        im_end_id=im_end_id,
-        decode_one_token=decode_one_token,
-        **sampling_kwargs,
-    )
-    # x = torch.cat(generated_tokens, dim=1)
-    seq = seq[:, : T + 1 + x.size(1)]
-    seq[:, T + 1 :] = x
-
-    return seq
-
+    except Exception as e:
+        logger.error(f"An error occurred during generation: {str(e)}")
+        logger.error(f"Error type: {type(e)}")
+        logger.error(f"Error args: {e.args}")
+        raise
 
 def encode_tokens(
     tokenizer,
