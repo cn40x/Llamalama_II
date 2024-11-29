@@ -91,7 +91,7 @@ def get_relevant_context(query: str, vector_db: Chroma, top_k: int = 3, threshol
 def get_llm_response(prompt, system_prompt="You are a female helpful assistant and English teacher. Try to answer briefly within 500 characters of letter but if asked for generate article or story answer full content. You always sprinkle a word lama! at the beginning and the end of chating.", vector_db: Chroma = None):
     searched = get_relevant_context(prompt, vector_db)
     if searched == "No relevant documents found.":
-        response = ollama.chat(model='phi3', messages=[
+        response = ollama.chat(model='phi3.5', messages=[
         {
             'role': 'system',
             'content': system_prompt,
@@ -104,7 +104,7 @@ def get_llm_response(prompt, system_prompt="You are a female helpful assistant a
         return response['message']['content']
     
     else:
-        response = ollama.chat(model='phi3', messages=[
+        response = ollama.chat(model='phi3.5', messages=[
             {
                 'role': 'system',
                 'content': system_prompt,

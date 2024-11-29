@@ -1,0 +1,34 @@
+No treatment on the market today has been proved to slow human aging. But one 
+intervention, consumption of a low-calorie∗ yet nutritionally balanced diet, works incredibly 
+well in a broad range of animals, increasing longevity and prolonging good health. Those 
+findings suggest that caloric restriction could delay aging and increase longevity in humans, 
+too. But what if someone could create a pill that mimicked the physiological effects of eating 
+less without actually forcing people to eat less, a 'caloric-restriction mimetic'? 
+The best-studied candidate for a caloric-restriction mimetic, 2DG (2-deoxy-D-glucose), works 
+by interfering with the way cells process glucose. It has proved toxic at some doses in animals 
+and so cannot be used in humans. But it has demonstrated that chemicals can replicate the 
+effects of caloric restriction; the trick is finding the right one. 
+Cells use the glucose from food to generate ATP (adenosine triphosphate), the molecule that 
+powers many activities in the body. By limiting food intake, caloric restriction minimizes the 
+amount of glucose entering cells and decreases ATP generation. When 2DG is administered 
+to animals that eat normally, glucose reaches cells in abundance but the drug prevents most 
+of it from being processed and thus reduces ATP synthesis. Researchers have proposed 
+several explanations for why interruption of glucose processing and ATP production might 
+retard aging. One possibility relates to the ATP-making machinery’s emission of free 
+radicals, which are thought to contribute to aging and to such age-related diseases as cancer 
+by damaging cells. Reduced operation of the machinery should limit their production and 
+thereby constrain the damage. Another hypothesis suggests that decreased processing of 
+glucose could indicate to cells that food is scarce (even if it isn’t) and induce them to shift into 
+an anti-aging mode that emphasizes preservation of the organism over such ‘luxuries’ as 
+growth and reproduction.
+
+#questions
+How a caloric-restriction mimetic works
+CR mimetic less 1................is processed production of ATP is decreased
+cells less damaged by disease because fewer 2...............are emitted
+cells focus on 3................because food is in short supply
+
+#answers
+1 glucose
+2 free radicals
+3 preservation

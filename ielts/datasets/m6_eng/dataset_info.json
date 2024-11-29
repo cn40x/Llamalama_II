@@ -1,0 +1,76 @@
+{
+  "builder_name": "csv",
+  "citation": "",
+  "config_name": "english",
+  "dataset_name": "thai-onet-m6-exam",
+  "dataset_size": 198279,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/openthaigpt/thai-onet-m6-exam@7af4db31808471e7ae84bb8554f3304702990ef2/data/train/english.csv": {
+      "num_bytes": 147392,
+      "checksum": null
+    },
+    "hf://datasets/openthaigpt/thai-onet-m6-exam@7af4db31808471e7ae84bb8554f3304702990ef2/data/test/english.csv": {
+      "num_bytes": 53164,
+      "checksum": null
+    }
+  },
+  "download_size": 200556,
+  "features": {
+    "year": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "\"no\"": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "instruction": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "input": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "result": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "isAnswerable": {
+      "dtype": "bool",
+      "_type": "Value"
+    },
+    "isMultipleChoice": {
+      "dtype": "bool",
+      "_type": "Value"
+    },
+    "isSingleChoiceSolution": {
+      "dtype": "bool",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 398835,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 145836,
+      "num_examples": 160,
+      "dataset_name": "thai-onet-m6-exam"
+    },
+    "test": {
+      "name": "test",
+      "num_bytes": 52443,
+      "num_examples": 60,
+      "dataset_name": "thai-onet-m6-exam"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}
