@@ -1,0 +1,40 @@
+Introducing dung1 beetles into a pasture is a simple process: approximately 1,500 beetles 
+are released, a handful at a time, into fresh cow pats2 in the cow pasture. The beetles 
+immediately disappear beneath the pats digging and tunnelling and, if they successfully 
+adapt to their new environment, soon become a permanent, self-sustaining part of the 
+local ecology. In time they multiply and within three or four years the benefits to the 
+pasture are obvious. 
+Dung beetles work from the inside of the pat so they are sheltered from predators such 
+as birds and foxes. Most species burrow into the soil and bury dung in tunnels directly 
+underneath the pats, which are hollowed out from within. Some large species originating 
+from France excavate tunnels to a depth of approximately 30 cm below the dung pat. 
+These beetles make sausage-shaped brood chambers along the tunnels. The shallowest 
+tunnels belong to a much smaller Spanish species that buries dung in chambers that hang 
+like fruit from the branches of a pear tree. South African beetles dig narrow tunnels of 
+approximately 20 cm below the surface of the pat. Some surface-dwelling beetles, 
+including a South African species, cut perfectly-shaped balls from the pat, which are 
+rolled away and attached to the bases of plants. 
+For maximum dung burial in spring, summer and autumn, farmers require a variety of 
+species with overlapping periods of activity. In the cooler environments of the state of 
+Victoria, the large French species (2.5 cms long), is matched with smaller (half this size), 
+temperate-climate Spanish species. The former are slow to recover from the winter cold 
+and produce only one or two generations of offspring from late spring until autumn. The 
+latter, which multiply rapidly in early spring, produce two to five generations annually. 
+The South African ball-rolling species, being a sub-tropical beetle, prefers the climate of 
+northern and coastal New South Wales where it commonly works with the South 
+African tunneling species. In warmer climates, many species are active for longer periods 
+of the year.
+
+
+#questions
+Species:French,Spanish,South African 
+Size:2.5 cm,1.25 cm, None
+Preferred climate: cool, 1............ ,2............
+Complementary species: Spanish, None, 3………...
+
+#answers
+1 temperate 
+2 early spring
+3 two to five / 2-5
+12 sub-tropical
+13 South African tunneling/tunnelling
