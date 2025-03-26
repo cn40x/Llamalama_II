@@ -16,11 +16,24 @@ from typing import List
 #tts
 from gtts import gTTS
 
+#rvc
+from rvc_python.infer import RVCInference
 
 #asr
 import whisper
 
+import subprocess
+def pull_model(model_name:str="mxbai-embed-large"):
+    try:
+        result = subprocess.run(["ollama", "pull", model_name], check=True, capture_output=True, text=True)
+        print("Model pulled successfully:")
+        print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print("Error pulling model:")
+        print(e.stderr)
+        
 
+#ngrok http --url=square-boxer-simply.ngrok-free.app 80
 
 whisper_model = whisper.load_model("small")
 def transcribe_audio(audio_bytes):
@@ -44,7 +57,9 @@ def get_relevant_context(query: str, vector_db: Chroma, top_k: int = 3, threshol
     all_embeddings = vector_db._collection.get(include=['embeddings', 'documents'])
     embeddings = torch.tensor(all_embeddings['embeddings'])
     documents = all_embeddings['documents']
-
+    
+    # print(query_embedding.unsqueeze(0).size())
+    # print(embeddings.size())
     cos_scores = torch.nn.functional.cosine_similarity(query_embedding.unsqueeze(0), embeddings)
     filtered_scores = cos_scores[cos_scores >= threshold]
     if len(filtered_scores) == 0:
@@ -58,33 +73,54 @@ def get_relevant_context(query: str, vector_db: Chroma, top_k: int = 3, threshol
         res += f"{i+1}. {documents[idx]},\n\n"
     return res
 
-def get_llm_response(prompt, system_prompt="You are a female helpful assistant and English teacher. Try to answer briefly within 500 characters of letter but if asked for generate article or story answer full content.", vector_db: Chroma = None):
-    searched = get_relevant_context(prompt, vector_db)
-    if searched == "No relevant documents found.":
-        response = ollama.chat(model='phi3.5', messages=[
-        {
-            'role': 'system',
-            'content': system_prompt,
-        },
-        {
-            'role': 'user',
-            'content': prompt,
-        }
-    ],options={'temperature': 0.6})  
-        return response['message']['content']
-    
-    else:
-        response = ollama.chat(model='phi3.5', messages=[
+def get_llm_response(prompt,agent_type="",system_prompt="You are a female helpful assistant and English teacher. Try to answer briefly within 500 characters of letter but if asked for generate article or story answer full content.", vector_db: Chroma = None,rag:bool=True,t_res:str=""):
+    model='qwen2.5' #'phi3.5'
+    if rag:
+        searched = get_relevant_context(prompt, vector_db)
+        if searched == "No relevant documents found.":
+            
+            response = ollama.chat(model=model, messages=[
             {
                 'role': 'system',
                 'content': system_prompt,
             },
             {
                 'role': 'user',
-                'content': prompt + f",Results from searching doccuments : {searched},",
+                'content': prompt,
             }
-        ])
-        return response['message']['content']
+        ],options={'temperature': 0.1})  
+            return response['message']['content']
+        
+        else:
+            
+            response = ollama.chat(model=model, messages=[
+                {
+                    'role': 'system',
+                    'content': system_prompt,
+                },
+                {
+                    'role': 'user',
+                    'content': prompt + f",Results from searching doccuments : {searched},",
+                }
+            ])
+            return response['message']['content']
+    else:
+        if agent_type=="student":
+            response = ollama.chat(model=model, messages=[
+                    {
+                        'role': 'system',
+                        'content': "you are a female student named mala,who talk little, there are ai teacher and student in this room",
+                    },
+                    {
+                        'role': 'user',
+                        'content': "student:"+prompt,
+                    },
+                    {
+                        'role': 'user',
+                        'content': "teacher:"+t_res,
+                    }
+                ],options={'temperature': 0.05})
+            return response['message']['content']
 
 def text_to_speech(text):
     # if len(text) < 500:
@@ -129,13 +165,54 @@ def fallback_tts(text):
     fp.seek(0)
     return fp.read()
 
+
 def read_mp3_to_bytes(file_path):
     with open(file_path, "rb") as f:
         return f.read()
-        
+     
 
 def clean_text(text: str = None) -> str:
-    text = re.sub(r'https?://\S+|www\.\S+', '', text)
-    text = re.sub(r'\+?\d[\d -]{8,}\d', '', text)
-    text = re.sub(r'\s+', ' ', text).strip()
+    
+    text = re.sub(r'https?://\S+|www\.\S+', '', text)  # Remove URLs
+    text = re.sub(r'\+?\d[\d -]{8,}\d', '', text)  # Remove phone numbers
+    text = re.sub(r'[\\/]', '', text)  # Remove \ and /
+    text = re.sub(r'[\[\]{}<>|]', '', text)  # Remove brackets and pipes
+    text = re.sub(r'[_*~^]', '', text)  # Remove markdown special characters
+    text = re.sub(r'`+', '', text)  # Remove backticks
+    text = re.sub(r'\s+', ' ', text).strip()  # Normalize spaces
     return text
+
+def voice_convert(input_audio_bytes):
+    from rvc_python.infer import RVCInference
+    with open("./rvc_models/temp_input.wav", "wb") as f:
+        f.write(input_audio_bytes)
+    try:
+        rvc = RVCInference(device="cuda:0")
+        rvc.load_model("Chidori") #female
+        rvc.infer_file("./rvc_models/temp_input.wav", "./rvc_models/temp_output.wav")
+        return "./rvc_models/temp_output.wav"
+    except:
+        return None
+
+import os
+import requests
+from dotenv import load_dotenv
+from PIL import Image
+import io
+
+def generate_and_save_image(prompt, filename="genfromapi.jpg"):
+    load_dotenv()
+    hf_token = os.getenv("hf_token")
+    API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell"
+    headers = {"Authorization": f"Bearer {hf_token}"}
+    
+    response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+    
+    if response.status_code == 200:
+        image_bytes = response.content
+        image = Image.open(io.BytesIO(image_bytes))
+        image.save(filename)
+        print(f"Image saved as {filename}")
+        
+    else:
+        print(f"Error: {response.status_code} - {response.text}")
