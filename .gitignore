@@ -2,3 +2,6 @@
 .env
 ngrok.yml
 local_vector_db
+*.pdf
+*.ipynb
+venv

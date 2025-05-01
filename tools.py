@@ -1,4 +1,3 @@
-
 import ollama
 import torch
 
@@ -52,7 +51,8 @@ class OllamaEmbeddings(Embeddings):
     def embed_query(self, text: str) -> List[float]:
         return ollama.embeddings(model=self.model, prompt=text)['embedding']
 
-def get_relevant_context(query: str, vector_db: Chroma, top_k: int = 3, threshold: float = 0.8) -> str:
+# ลด top_k จาก 3 เป็น 2 และ ลด threshold จาก 0.8 เป็น 0.75
+def get_relevant_context(query: str, vector_db: Chroma, top_k: int = 5, threshold: float = 0.8) -> str:
     query_embedding = torch.tensor(OllamaEmbeddings().embed_query(query))
     all_embeddings = vector_db._collection.get(include=['embeddings', 'documents'])
     embeddings = torch.tensor(all_embeddings['embeddings'])
@@ -73,10 +73,11 @@ def get_relevant_context(query: str, vector_db: Chroma, top_k: int = 3, threshol
         res += f"{i+1}. {documents[idx]},\n\n"
     return res
 
-def get_llm_response(prompt,agent_type="",system_prompt="You are a female helpful assistant and English teacher. Try to answer briefly within 500 characters of letter but if asked for generate article or story answer full content.", vector_db: Chroma = None,rag:bool=True,t_res:str=""):
-    model='qwen2.5' #'phi3.5'
+def get_llm_response(prompt,agent_type="",system_prompt="You are a female helpful assistant and English teacher. Try to answer briefly but if asked for generate article or story answer full content.", vector_db: Chroma = None,rag:bool=True,t_res:str=""):
+    model='qwen3:4b' #'qwen2.5'
     if rag:
         searched = get_relevant_context(prompt, vector_db)
+        print(searched)
         if searched == "No relevant documents found.":
             
             response = ollama.chat(model=model, messages=[
@@ -88,7 +89,7 @@ def get_llm_response(prompt,agent_type="",system_prompt="You are a female helpfu
                 'role': 'user',
                 'content': prompt,
             }
-        ],options={'temperature': 0.1})  
+        ],options={'temperature': 0.1}) #'num_predict': 200
             return response['message']['content']
         
         else:
@@ -109,7 +110,7 @@ def get_llm_response(prompt,agent_type="",system_prompt="You are a female helpfu
             response = ollama.chat(model=model, messages=[
                     {
                         'role': 'system',
-                        'content': "you are a female student named mala,who talk little, there are ai teacher and student in this room",
+                        'content': "you are a female student named mala,who talk little, there are ai teacher and student in this room, remember answer briefly",
                     },
                     {
                         'role': 'user',
@@ -119,8 +120,20 @@ def get_llm_response(prompt,agent_type="",system_prompt="You are a female helpfu
                         'role': 'user',
                         'content': "teacher:"+t_res,
                     }
-                ],options={'temperature': 0.05})
+                ],options={'temperature': 0, 'num_predict': 500})
             return response['message']['content']
+
+def clean_think_tag(text):
+    """
+    Removes all <think>...</think> tags and the text between them from the input text.
+    
+    Args:
+        text (str): The input string containing <think> tags.
+    
+    Returns:
+        str: The cleaned string with <think> blocks removed.
+    """
+    return re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
 
 def text_to_speech(text):
     # if len(text) < 500:
@@ -178,7 +191,7 @@ def clean_text(text: str = None) -> str:
     text = re.sub(r'[\\/]', '', text)  # Remove \ and /
     text = re.sub(r'[\[\]{}<>|]', '', text)  # Remove brackets and pipes
     text = re.sub(r'[_*~^]', '', text)  # Remove markdown special characters
-    text = re.sub(r'`+', '', text)  # Remove backticks
+    text = re.sub(r'`', '', text)  # Remove backticks
     text = re.sub(r'\s+', ' ', text).strip()  # Normalize spaces
     return text
 

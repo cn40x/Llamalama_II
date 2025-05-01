@@ -5,16 +5,13 @@ import os
 from langchain_community.document_loaders import UnstructuredPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
-from tools import transcribe_audio, OllamaEmbeddings, get_llm_response, clean_text, text_to_speech,pull_model,voice_convert
+from tools import transcribe_audio, clean_think_tag, OllamaEmbeddings, get_llm_response, clean_text, text_to_speech,pull_model,voice_convert
 from streamlit_mic_recorder import mic_recorder
 import nltk
 import random
+import torch
+import whisper
 
-# nltk.download('averaged_perceptron_tagger_eng')
-# nltk.download('averaged_perceptron_tagger')
-        
-# pull_model(model_name="mxbai-embed-large")#pull mx-bai-large
-# pull_model(model_name="qwen2.5")
 
 def handle_file_upload(uploaded_files,DOCS_FOLDER:str="./docs"):
     if uploaded_files:
@@ -27,36 +24,39 @@ def handle_file_upload(uploaded_files,DOCS_FOLDER:str="./docs"):
         st.session_state.vector_db = process_pdfs_and_create_vector_db()
         
 def load_or_create_vector_db(VECTOR_DB_PATH:str='./local_vector_db'):
-
     if os.path.exists(VECTOR_DB_PATH):
         with st.spinner("Loading existing vector database..."):
+            # โหลดฐานข้อมูลจากพาธที่กำหนด
             st.session_state.vector_db = Chroma(persist_directory=VECTOR_DB_PATH, embedding_function=OllamaEmbeddings(model="mxbai-embed-large"),collection_name="local-rag")
             st.success("Vector database loaded successfully!")
     else:
-        return process_pdfs_and_create_vector_db()
+        st.session_state.vector_db = process_pdfs_and_create_vector_db()
 
 def process_pdfs_and_create_vector_db(VECTOR_DB_PATH:str='./local_vector_db'):
-
     with st.spinner("Processing PDFs and creating vector database..."):
         all_chunks = []
         for pdf_file in glob.glob(os.path.join("./docs/*.pdf")):
             loader = UnstructuredPDFLoader(file_path=pdf_file)
             data = loader.load()
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=100)
+            st.write(f"🔍 Loaded from {pdf_file}:\n", data[0].page_content[:500])  # แสดงบางส่วนของเนื้อหา
+            st.write(f"Vector DB contains {len(st.session_state.vector_db._collection.get()['documents'])} documents") #ลองใส่ st.write() หลังจาก Chroma ถูกสร้าง
+            # ปรับการใช้ split_documents() ให้มีขนาดใหญ่ขึ้น
+            text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
             chunks = text_splitter.split_documents(data)
             all_chunks.extend(chunks)
 
         embedding_function = OllamaEmbeddings(model="mxbai-embed-large")
-        st.session_state.vector_db = Chroma.from_documents(
+        # สร้างฐานข้อมูลเวกเตอร์จากเอกสาร
+        vector_db = Chroma.from_documents(
             documents=all_chunks,
             embedding=embedding_function,
             collection_name="local-rag",
             persist_directory=VECTOR_DB_PATH,
         )
-        st.session_state.vector_db.persist()
-        st.success("Vector database updated successfully!")
+        st.success("Vector database created successfully!")
 
-    
+        return vector_db
+
 def main():
     st.set_page_config(page_title="Llamalama II ChatLLM App", page_icon="🤖🦙")
     st.title("Llamalama II 🤖🦙")
@@ -70,43 +70,28 @@ def main():
     if 'vector_db' not in st.session_state:
         vector_db_path = './local_vector_db'
         load_or_create_vector_db()
-        # if os.path.exists(vector_db_path):
-        #     with st.spinner("Loading existing vector database..."):
-        #         st.session_state.vector_db = Chroma(persist_directory=vector_db_path, embedding_function=OllamaEmbeddings(model="mxbai-embed-large"),collection_name="local-rag")
-        #         st.success("Vector database loaded successfully!")
-        # else:
-        #      with st.spinner("Processing PDFs and creating vector database..."):
-        #         all_chunks = []
-        #         for pdf_file in glob.glob(os.path.join("./docs/*.pdf")):
-        #             loader = UnstructuredPDFLoader(file_path=pdf_file)
-        #             data = loader.load()
-        #             text_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=100)
-        #             chunks = text_splitter.split_documents(data)
-        #             all_chunks.extend(chunks)
-
-        #         embedding_function = OllamaEmbeddings(model="mxbai-embed-large")
-        #         st.session_state.vector_db = Chroma.from_documents(
-        #             documents=all_chunks,
-        #             embedding=embedding_function,
-        #             collection_name="local-rag",
-        #             persist_directory=vector_db_path,
-        #         )
-        #         st.session_state.vector_db.persist()
-        #         st.success("Vector database updated successfully!")
 
     st.sidebar.header("📂 Upload PDFs")
     uploaded_files = st.sidebar.file_uploader("Choose PDF files", type=["pdf"], accept_multiple_files=True)
+
+    # แสดงชื่อไฟล์ที่อัปโหลด
+    if uploaded_files:
+        for uploaded_file in uploaded_files:
+            st.write(f"Uploaded File: {uploaded_file.name}")
+
     if st.sidebar.button("Process Files"):
         handle_file_upload(uploaded_files)
-        
+
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    user_input = st.chat_input("Type your question /พิมเพื่อถาม🤗")
+    user_input = st.chat_input("Type your question 🤗 (Englienglish only)")
 
     prompt = None
-    audio = mic_recorder(start_prompt="to record ⏺️", stop_prompt="to stop⏹️", key='recorder', just_once=True)
+    with st.container():
+        audio = mic_recorder(start_prompt="to record ⏺️", stop_prompt="to stop⏹️", key='recorder', just_once=True)
+        
     if audio:
         st.session_state.transcription = None
         st.audio(audio['bytes'], format="audio/wav")
@@ -134,9 +119,9 @@ def main():
             message_placeholder = st.empty()
             full_response = ""
             start_time = time.time()
-            with st.spinner("Thinking/กำลังคิดอยู่...🦙🤔🧐"):
-                llm_response = get_llm_response(prompt,agent_type="teacher", vector_db=st.session_state.vector_db)
-
+            with st.spinner("Thinking🦙🤔🧐"):
+                llm_response = get_llm_response(prompt,agent_type="teacher", vector_db=st.session_state.vector_db,rag=True)
+                llm_response = clean_think_tag(text=llm_response)
             for chunk in llm_response.split():
                 full_response += chunk + " "
                 message_placeholder.markdown(full_response + "▌")
@@ -152,15 +137,14 @@ def main():
         st.write(f"Response time: {elapsed_time:.2f} seconds")
 
 
-        
         if random.randint(0,10)>7:
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
                 
                 start_time = time.time()
-                with st.spinner("Thinking/กำลังคิดอยู่...🦙🤔🧐"):
+                with st.spinner("Thinking🦙🤔🧐"):
                     student_response = get_llm_response(prompt,agent_type="student",rag=False,t_res=clean_response)
-
+                    student_response = clean_think_tag(text=student_response)
                 message_placeholder.markdown(student_response)
                 
                 audio_bytes =text_to_speech(student_response)
@@ -173,8 +157,8 @@ def main():
                 end_time = time.time()
                 elapsed_time = end_time - start_time
                 st.write(f"Response time: {elapsed_time:.2f} seconds")
-            
-            
 
+            
+            
 if __name__ == "__main__":
     main()
